@@ -65,6 +65,10 @@ function App() {
       gifUrls.push(config.cloudFrontDomain + key);
     });
     console.log("Got URLs: " + gifUrls);
+    setGifUrls(gifUrls);
+    setIsLoading(false);
+    return gifUrls;
+  };
 
   async function fetchData() {
     console.log("Fetching data with token:" + continuationToken);
