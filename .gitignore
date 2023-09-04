@@ -1,0 +1,15 @@
+clips/
+bin/
+lib/
+gifs/
+*.mp4
+*.gif
+times.txt
+web-ui/node_modules
+web-ui/dist
+cdk-app/cdk.json
+.DS_Store
+pyvenv.cfg
+.vscode
+.vscode/
+pyvenv.cfg

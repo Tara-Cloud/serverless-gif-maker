@@ -1,0 +1,171 @@
+from aws_cdk import (
+    Duration,
+    Stack,
+    CfnOutput,
+    RemovalPolicy,
+    aws_s3 as s3,
+    aws_s3_deployment as s3_deploy,
+    aws_lambda as _lambda,
+    aws_apigateway as apigw,
+    aws_logs as logs,
+    aws_secretsmanager as secretsmanager,
+    aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins,
+    aws_route53 as route53,
+)
+from constructs import Construct
+from datadog_cdk_constructs_v2 import Datadog
+import os
+
+
+class StaticS3Stack(Stack):
+    def __init__(
+        self, scope: Construct, construct_id: str, gif_bucket: s3.Bucket, **kwargs
+    ) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        # datadog api key secret
+        # pass to datadog construct to configure lambda execution roles
+        datadog_api_key_secret = secretsmanager.Secret.from_secret_partial_arn(
+            self,
+            "dd_api_key_secret",
+            secret_partial_arn="arn:aws:secretsmanager:us-east-1:112825984205:secret:DdApiKeySecret-KX38ECVTR2uT-mxkSag",
+        )
+
+        # datadog construct
+        datadog = Datadog(
+            self,
+            "Datadog",
+            api_key_secret_arn=datadog_api_key_secret.secret_arn,
+            env="tara-cloud",
+            service="gif-splitter",
+            add_layers=True,
+            python_layer_version=78,
+            extension_layer_version=47,
+            flush_metrics_to_logs=True,
+            site="datadoghq.com",
+            enable_datadog_tracing=True,
+            enable_datadog_logs=True,
+            source_code_integration=True,
+            log_level="DEBUG",
+        )
+
+        # s3 bucket to host React website
+        website_bucket = s3.Bucket(
+            self,
+            "website_bucket",
+            removal_policy=RemovalPolicy.DESTROY,
+            block_public_access=s3.BlockPublicAccess(restrict_public_buckets=False),
+            website_index_document="index.html",
+        )
+
+        website_bucket.grant_public_access()
+
+        # deploy static web assets to bucket
+        static_assets_path = f"../web-ui/dist/"
+        s3_deploy.BucketDeployment(
+            self,
+            "s3_deployment",
+            destination_bucket=website_bucket,
+            sources=[s3_deploy.Source.asset(path=static_assets_path)],
+        )
+
+        # set up cloudfront distribution for gif_bucket
+        access_identity = cloudfront.OriginAccessIdentity(self, "access_identity")
+        cloudfront_distribution = cloudfront.Distribution(
+            self,
+            "cloudfront_distribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3Origin(
+                    bucket=gif_bucket, origin_access_identity=access_identity
+                )
+            ),
+        )
+
+        # lambda function to generate pre-signed-urls
+        cwd = os.getcwd()
+        presigned_url_lambda = _lambda.Function(
+            self,
+            "gif_presigned_urls",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="presigned_url.handler",
+            code=_lambda.Code.from_asset(
+                os.path.join(cwd, "lambda_assets/generate_presigned_url")
+            ),
+            timeout=Duration.seconds(180),
+            environment={
+                "GIF_BUCKET": gif_bucket.bucket_name,
+                # TODO: change this to your own domain
+                "CORS_ORIGIN": website_bucket.bucket_website_url,
+            },
+        )
+        gif_bucket.grant_read(presigned_url_lambda)
+        datadog_api_key_secret.grant_read(presigned_url_lambda)
+
+        # lambda function to get cloudfront urls
+        # cloudfont_url_lambda = _lambda.Function(self, 'cloudfront_lambda',
+
+        get_s3_keys_lambda = _lambda.Function(
+            self,
+            "list_s3_keys",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="list_s3_keys.handler",
+            code=_lambda.Code.from_asset(
+                os.path.join(cwd, "lambda_assets/list_s3_keys")
+            ),
+            timeout=Duration.seconds(180),
+            environment={
+                "GIF_BUCKET": gif_bucket.bucket_name,
+                "PAGE_SIZE": "20",
+                # TODO: change this to your own domain
+                "CORS_ORIGIN": website_bucket.bucket_website_url,
+            },
+        )
+        gif_bucket.grant_read(get_s3_keys_lambda)
+        # datadog.add_lambda_functions([get_s3_keys_lambda, presigned_url_lambda])
+        datadog_api_key_secret.grant_read(get_s3_keys_lambda)
+
+        # api to front presigned url lambda
+        api_log_group = logs.LogGroup(
+            self, "GifApiLogGroup", removal_policy=RemovalPolicy.DESTROY
+        )
+        api = apigw.LambdaRestApi(
+            self,
+            "presigned_url_api",
+            handler=presigned_url_lambda,
+            proxy=False,
+            description="This service serves pre-signed urls for gif files",
+            cloud_watch_role=True,
+            deploy_options=apigw.StageOptions(
+                access_log_destination=apigw.LogGroupLogDestination(api_log_group),
+                logging_level=apigw.MethodLoggingLevel.INFO,
+            ),
+            default_cors_preflight_options=apigw.CorsOptions(
+                allow_origins=[website_bucket.bucket_website_url],
+                allow_methods=["GET", "POST", "OPTIONS"],
+            ),
+        )
+
+        gif_url = api.root.add_resource("gif_url")
+        gif_url.add_method(
+            "POST",
+        )
+
+        list_s3_keys = api.root.add_resource("list_s3_keys")
+        # request_parameters = {"method.request.querystring.ContinuationToken": False}
+        list_s3_keys.add_method(
+            "POST",
+            integration=apigw.LambdaIntegration(get_s3_keys_lambda),
+            # request_parameters=request_parameters,
+        )
+
+        # send api gw logs into datadog
+        datadog.add_forwarder_to_non_lambda_log_groups(log_groups=[api_log_group])
+
+        # output url for s3 bucket
+        CfnOutput(
+            self,
+            "url_output",
+            value=website_bucket.bucket_website_url,
+            description="S3 Website URL",
+        )
