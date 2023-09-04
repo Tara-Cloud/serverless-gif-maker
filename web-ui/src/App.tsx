@@ -5,6 +5,7 @@ import NavBar from "./components/NavBar";
 import GifService from "./services/gif-service";
 import { AxiosResponse } from "axios";
 import { datadogRum } from "@datadog/browser-rum";
+import config from "../config";
 
 datadogRum.init({
   applicationId: "6e52b0d2-afce-43a1-9ab1-313bd11978b5",
@@ -45,18 +46,25 @@ function App() {
     }
   };
 
-  const getGifUrls = async (s3Keys: string[]) => {
-    console.log("Getting URLs");
-    try {
-      const { request } = GifService.gifUrl(s3Keys);
-      const response = await request;
-      console.log("Got URLs: " + response.data.presignedUrls);
-      return response; // Return the response promise
-    } catch (err: any) {
-      setError(err.message);
-      console.log(err.message);
-    }
-  };
+  // const getGifUrls = async (s3Keys: string[]) => {
+  //   console.log("Getting URLs");
+  //   try {
+  //     const { request } = GifService.gifUrl(s3Keys);
+  //     const response = await request;
+  //     console.log("Got URLs: " + response.data.presignedUrls);
+  //     return response; // Return the response promise
+  //   } catch (err: any) {
+  //     setError(err.message);
+  //     console.log(err.message);
+  //   }
+  // };
+  const getGifUrls = (s3Keys: string[]) => {
+    // loop through s3 keys and preappend domain name
+    const gifUrls: string[] = [];
+    s3Keys.forEach((key) => {
+      gifUrls.push(config.cloudFrontDomain + key);
+    });
+    console.log("Got URLs: " + gifUrls);
 
   async function fetchData() {
     console.log("Fetching data with token:" + continuationToken);
@@ -67,17 +75,18 @@ function App() {
       if (response) {
         const gifKeys: string[] = response.data.s3_keys; // Get the data from the response
         setContinuationToken(response.data.next_token); // Set the continuation token
-        try {
-          const gifUrlsResponse: AxiosResponse | undefined = await getGifUrls(
-            gifKeys
-          ); // Await the getGifUrls function
-          if (gifUrlsResponse) {
-            setGifUrls(gifUrlsResponse.data.presignedUrls); // Set the gifUrls state
-            setIsLoading(false); // Set the isLoading state
-          }
-        } catch (err: any) {
-          console.log(err.message);
-        }
+        getGifUrls(gifKeys);
+        // try {
+        //   const gifUrlsResponse: AxiosResponse | undefined = await getGifUrls(
+        //     gifKeys
+        //   ); // Await the getGifUrls function
+        //   if (gifUrlsResponse) {
+        //     setGifUrls(gifUrlsResponse.data.presignedUrls); // Set the gifUrls state
+        //     setIsLoading(false); // Set the isLoading state
+        //   }
+        // } catch (err: any) {
+        //   console.log(err.message);
+        // }
       }
     } catch (err: any) {
       console.log(err.message);
