@@ -12,6 +12,7 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_route53 as route53,
+    aws_iam as iam,
 )
 from constructs import Construct
 from datadog_cdk_constructs_v2 import Datadog
@@ -125,6 +126,24 @@ class StaticS3Stack(Stack):
         # datadog.add_lambda_functions([get_s3_keys_lambda, presigned_url_lambda])
         datadog_api_key_secret.grant_read(get_s3_keys_lambda)
 
+        tag_s3_objects_lambda = _lambda.Function(
+            self,
+            "tag_s3_objects",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="tag_s3_object.handler",
+            code=_lambda.Code.from_asset(
+                os.path.join(cwd, "lambda_assets/tag_s3_objects")
+            ),
+            timeout=Duration.seconds(180),
+            environment={"GIF_BUCKET": gif_bucket.bucket_name},
+        )
+        tag_s3_objects_lambda.add_to_role_policy(
+            statement=iam.PolicyStatement(
+                actions=["s3:PutObjectTagging"],
+                resources=[f"{gif_bucket.bucket_arn}/*"],
+            )
+        )
+
         # api to front presigned url lambda
         api_log_group = logs.LogGroup(
             self, "GifApiLogGroup", removal_policy=RemovalPolicy.DESTROY
@@ -157,6 +176,11 @@ class StaticS3Stack(Stack):
             "POST",
             integration=apigw.LambdaIntegration(get_s3_keys_lambda),
             # request_parameters=request_parameters,
+        )
+
+        tag_s3_object = api.root.add_resource("tag_s3_object")
+        tag_s3_object.add_method(
+            "POST", integration=apigw.LambdaIntegration(tag_s3_objects_lambda)
         )
 
         # send api gw logs into datadog

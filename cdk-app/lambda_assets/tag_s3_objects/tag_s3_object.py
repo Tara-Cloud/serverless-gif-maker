@@ -7,6 +7,7 @@ GIF_BUCKET = os.environ.get("GIF_BUCKET")
 
 def tag_s3_object(bucket_name, object_key, tags):
     try:
+        print(f"Tagging {object_key} in {bucket_name} with {tags}")
         s3 = boto3.client("s3")
         s3.put_object_tagging(
             Bucket=bucket_name, Key=object_key, Tagging={"TagSet": tags}
@@ -21,12 +22,12 @@ def tag_s3_object(bucket_name, object_key, tags):
 # tags should be a list of dictionaries with 'Key' and 'Value' as keys.
 def handler(event, context):
     tags = event["tags"]
-
+    s3_key = event["s3_key"]
     # tags = [
     #     {'Key': 'Tag1', 'Value': 'Value1'},
     #     {'Key': 'Tag2', 'Value': 'Value2'},
     #     # ... add more tags as needed
     # ]
 
-    response = tag_s3_object("your_bucket_name", "your_object_key", tags)
+    response = tag_s3_object(GIF_BUCKET, s3_key, tags)
     print(response)

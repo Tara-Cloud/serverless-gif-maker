@@ -13,3 +13,4 @@ pyvenv.cfg
 .vscode
 .vscode/
 pyvenv.cfg
+config.ts

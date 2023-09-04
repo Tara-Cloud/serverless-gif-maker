@@ -24,6 +24,12 @@ class GifService {
         } )
         return {request}
     }
+
+    tagGif(s3_key: string, tags: string[]) { 
+        const requestData = {s3_key: s3_key, tags: tags}
+        const request = apiClient.post('/tag_gif',requestData )
+        return {request}
+    }
 }
 
 const create = () => new GifService();
