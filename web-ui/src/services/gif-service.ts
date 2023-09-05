@@ -24,10 +24,14 @@ class GifService {
         } )
         return {request}
     }
-
-    tagGif(s3_key: string, tags: string[]) { 
+    
+    tagGif(s3_key: string, tags: any) { 
         const requestData = {s3_key: s3_key, tags: tags}
-        const request = apiClient.post('/tag_gif',requestData )
+        const request = apiClient.post('/tag_gif',requestData, {
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        } )
         return {request}
     }
 }

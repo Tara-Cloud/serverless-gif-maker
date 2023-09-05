@@ -1,4 +1,5 @@
 import React from "react";
+import FaveHeart from "./FaveHeart";
 
 // props interface
 interface GifCardProps {
@@ -13,9 +14,7 @@ const GifCard: React.FC<GifCardProps> = ({ gifURL, gifKey }) => {
       <img src={gifURL} alt={gifKey} className="gif-item" loading="lazy" />
       <div className="card-body items-center text-center">
         <h2 className="card-title">{gifKey}</h2>
-      </div>
-      <div className="card-actions justify-end">
-        <button className="btn btn-warn">Fave</button>
+        <FaveHeart s3_key={gifKey}></FaveHeart>
       </div>
     </div>
   );

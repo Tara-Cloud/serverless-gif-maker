@@ -1,4 +1,4 @@
-import { SetStateAction, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 import GifCard from "./components/GifCard";
 import NavBar from "./components/NavBar";
@@ -28,11 +28,11 @@ datadogRum.startSessionReplayRecording();
 function App() {
   const [error, setError] = useState<string>("");
   const [gifUrls, setGifUrls] = useState<string[]>([]);
+  const [gifKeys, setGifKeys] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [continuationToken, setContinuationToken] = useState<string | null>(
     null
   );
-
   const getS3Keys = async (continuationToken: string | null) => {
     console.log("Getting s3 Keys");
     try {
@@ -79,6 +79,7 @@ function App() {
       if (response) {
         const gifKeys: string[] = response.data.s3_keys; // Get the data from the response
         setContinuationToken(response.data.next_token); // Set the continuation token
+        setGifKeys(gifKeys);
         getGifUrls(gifKeys);
         // try {
         //   const gifUrlsResponse: AxiosResponse | undefined = await getGifUrls(
@@ -110,11 +111,10 @@ function App() {
         ) : (
           gifUrls.map((key, index) => (
             <GifCard
-              key={key} // Add a unique key prop for mapping purposes
+              key={gifKeys[index]} // Add a unique key prop for mapping purposes
               gifURL={gifUrls[index]}
-              gifKey="placeholder"
+              gifKey={gifKeys[index]}
             />
-            // <img src={gifUrls[index]} alt="gif" key={key} />
           ))
         )}
       </div>

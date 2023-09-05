@@ -135,7 +135,10 @@ class StaticS3Stack(Stack):
                 os.path.join(cwd, "lambda_assets/tag_s3_objects")
             ),
             timeout=Duration.seconds(180),
-            environment={"GIF_BUCKET": gif_bucket.bucket_name},
+            environment={
+                "GIF_BUCKET": gif_bucket.bucket_name,
+                "CORS_ORIGIN": website_bucket.bucket_website_url,
+            },
         )
         tag_s3_objects_lambda.add_to_role_policy(
             statement=iam.PolicyStatement(
@@ -178,7 +181,7 @@ class StaticS3Stack(Stack):
             # request_parameters=request_parameters,
         )
 
-        tag_s3_object = api.root.add_resource("tag_s3_object")
+        tag_s3_object = api.root.add_resource("tag_gif")
         tag_s3_object.add_method(
             "POST", integration=apigw.LambdaIntegration(tag_s3_objects_lambda)
         )
