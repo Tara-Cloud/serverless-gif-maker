@@ -163,6 +163,7 @@ class StaticS3Stack(Stack):
                 "GIF_BUCKET": gif_bucket.bucket_name,
                 "CORS_ORIGIN": website_bucket.bucket_website_url,
                 "ARCHIVE_BUCKET": gif_archive_bucket.bucket_name,
+                "STORAGE_CLASS": "STANDARD_IA",
             },
         )
         gif_bucket.grant_read(archive_gifs_lambda)

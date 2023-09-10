@@ -6,6 +6,7 @@ from botocore.exceptions import ClientError
 s3 = boto3.client("s3")
 GIF_BUCKET = os.environ.get("GIF_BUCKET")
 ARCHIVE_BUCKET = os.environ.get("ARCHIVE_BUCKET")
+STORAGE_CLASS = os.environ.get("STORAGE_CLASS")
 
 
 def archive_object(object_key):
@@ -14,7 +15,7 @@ def archive_object(object_key):
             Bucket=ARCHIVE_BUCKET,
             CopySource={"Bucket": GIF_BUCKET, "Key": object_key},
             Key=object_key,
-            StorageClass="GLACIER",
+            StorageClass=STORAGE_CLASS,
         )
         return response
     except Exception as e:
@@ -34,8 +35,8 @@ def delete_object(object_key):
 def handler(event, context):
     try:
         s3_key = json.loads(event["body"]).get("s3_key")
-        archive_object(s3_key)
-        delete_object(s3_key)
+        archive_response = archive_object(s3_key)
+        delete_response = delete_object(s3_key)
 
         return {
             "statusCode": 200,
@@ -44,7 +45,7 @@ def handler(event, context):
                 "Access-Control-Allow-Origin": os.environ.get("CORS_ORIGIN"),
                 "Cache-Control": "no-store",
             },
-            "body": json.dumps(f"archived {s3_key}"),
+            "body": json.dumps(f"{archive_response} {delete_response}"),
         }
     except ClientError as e:
         print(e)
