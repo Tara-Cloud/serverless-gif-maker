@@ -4,3 +4,5 @@ cdk.out
 node_modules
 cdk.json
 source.bat
+__pycache__
+```

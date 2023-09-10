@@ -71,6 +71,9 @@ class StaticS3Stack(Stack):
             sources=[s3_deploy.Source.asset(path=static_assets_path)],
         )
 
+        # s3 bucket to archive gifs
+        gif_archive_bucket = s3.Bucket(self, "gif_archive_bucket")
+
         # set up cloudfront distribution for gif_bucket
         access_identity = cloudfront.OriginAccessIdentity(self, "access_identity")
         cloudfront_distribution = cloudfront.Distribution(
@@ -146,6 +149,25 @@ class StaticS3Stack(Stack):
                 resources=[f"{gif_bucket.bucket_arn}/*"],
             )
         )
+
+        archive_gifs_lambda = _lambda.Function(
+            self,
+            "archive_gifs",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="archive_gif.handler",
+            code=_lambda.Code.from_asset(
+                os.path.join(cwd, "lambda_assets/archive_gif")
+            ),
+            timeout=Duration.seconds(180),
+            environment={
+                "GIF_BUCKET": gif_bucket.bucket_name,
+                "CORS_ORIGIN": website_bucket.bucket_website_url,
+                "ARCHIVE_BUCKET": gif_archive_bucket.bucket_name,
+            },
+        )
+        gif_bucket.grant_read(archive_gifs_lambda)
+        gif_bucket.grant_delete(archive_gifs_lambda)
+        gif_archive_bucket.grant_put(archive_gifs_lambda)
 
         # api to front presigned url lambda
         api_log_group = logs.LogGroup(
