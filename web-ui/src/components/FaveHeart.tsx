@@ -1,5 +1,5 @@
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import GifService from "../services/gif-service";
 
 interface FaveHeartProps {
@@ -8,6 +8,21 @@ interface FaveHeartProps {
 
 const FaveHeart: React.FC<FaveHeartProps> = ({ s3_key }) => {
   const [faved, setFaved] = useState(false);
+
+  const checkFave = async () => {
+    const { request } = GifService.getTags(s3_key);
+    const response = await request;
+    const tags = response.data.Tags;
+    if (tags) {
+      for (let i = 0; i < tags.length; i++) {
+        console.log(tags);
+        if (tags[i] === "favorite") {
+          setFaved(true);
+          return;
+        }
+      }
+    }
+  };
 
   const handleFave = async () => {
     console.log("Favoriting " + s3_key);
@@ -29,6 +44,11 @@ const FaveHeart: React.FC<FaveHeartProps> = ({ s3_key }) => {
     console.log("Unfavorited " + s3_key);
     setFaved(false);
   };
+
+  useEffect(() => {
+    checkFave();
+  }, []);
+
   if (faved)
     return (
       <AiFillHeart color="#ff6b81" size={20} onClick={() => handleUnfave()} />

@@ -35,6 +35,16 @@ class GifService {
         return {request}
     }
 
+    getTags(s3_key: string) {
+        const requestData = {s3_key: s3_key}
+        const request = apiClient.post('/get_tags',requestData, {
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        } )
+        return {request}
+    }
+
     archiveGif(s3_key: string) { 
         const requestData = {s3_key: s3_key}
         const request = apiClient.post('/archive_gif',requestData, {

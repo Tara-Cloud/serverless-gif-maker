@@ -81,17 +81,6 @@ function App() {
         setContinuationToken(response.data.next_token); // Set the continuation token
         setGifKeys(gifKeys);
         getGifUrls(gifKeys);
-        // try {
-        //   const gifUrlsResponse: AxiosResponse | undefined = await getGifUrls(
-        //     gifKeys
-        //   ); // Await the getGifUrls function
-        //   if (gifUrlsResponse) {
-        //     setGifUrls(gifUrlsResponse.data.presignedUrls); // Set the gifUrls state
-        //     setIsLoading(false); // Set the isLoading state
-        //   }
-        // } catch (err: any) {
-        //   console.log(err.message);
-        // }
       }
     } catch (err: any) {
       console.log(err.message);
