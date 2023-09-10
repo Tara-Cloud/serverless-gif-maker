@@ -208,6 +208,11 @@ class StaticS3Stack(Stack):
             "POST", integration=apigw.LambdaIntegration(tag_s3_objects_lambda)
         )
 
+        archive_gif = api.root.add_resource("archive_gif")
+        archive_gif.add_method(
+            "POST", integration=apigw.LambdaIntegration(archive_gifs_lambda)
+        )
+
         # send api gw logs into datadog
         datadog.add_forwarder_to_non_lambda_log_groups(log_groups=[api_log_group])
 
