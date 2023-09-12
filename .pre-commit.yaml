@@ -1,0 +1,8 @@
+-   repo: https://github.com/pre-commit/mirrors-black
+    rev: v21.12b0  # Use the latest version of black
+    hooks:
+    -   id: black
+-   repo: https://github.com/pre-commit/mirrors-flake8
+    rev: v4.1.1  # Use the latest version of flake8
+    hooks:
+    -   id: flake8
