@@ -7,6 +7,8 @@ interface TrashIconProps {
 }
 
 const TrashIcon: React.FC<TrashIconProps> = ({ s3_key }) => {
+  const [hovered, setHovered] = useState(false);
+
   const handleArchive = async () => {
     console.log("Archiving " + s3_key);
 
@@ -19,7 +21,15 @@ const TrashIcon: React.FC<TrashIconProps> = ({ s3_key }) => {
     }
   };
 
-  return <FaTrash size={20} onClick={() => handleArchive()} />;
+  return (
+    <FaTrash
+      size={20}
+      onClick={() => handleArchive()}
+      style={{ color: hovered ? "#570df8" : "white" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    />
+  );
 };
 
 export default TrashIcon;
