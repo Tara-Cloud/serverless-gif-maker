@@ -26,9 +26,7 @@ def handler(event, context):
             pagination_config["StartingToken"] = continuation_token
 
         print(pagination_config)
-        page_iterator = paginator.paginate(
-            Bucket=GIF_BUCKET, PaginationConfig=pagination_config
-        )
+        page_iterator = paginator.paginate(Bucket=GIF_BUCKET, PaginationConfig=pagination_config)
 
         for page in page_iterator:
             if "Contents" in page:

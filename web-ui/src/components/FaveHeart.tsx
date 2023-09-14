@@ -34,22 +34,24 @@ const FaveHeart: React.FC<FaveHeartProps> = ({ s3_key }) => {
       Key: "favorite",
       Value: "true",
     };
-    if (tags) {
-      tags.push(faveTag);
-    } else {
-      setTags([faveTag]);
-      try {
-        const { request } = GifService.tagGif(s3_key, tags);
-        const response = await request;
-        console.log(response.data);
-        setFaved(true);
-        console.log("Tags: " + tags);
-        console.log("Favoriting " + s3_key);
-        return response;
-      } catch (err: any) {
-        console.log(err.message);
-      }
+
+    try {
+      let newTags;
+      if (tags && tags.length > 0) {
+        newTags = [...tags, faveTag];
+      } else newTags = [faveTag];
+      setTags(newTags);
+
+      const { request } = GifService.tagGif(s3_key, newTags);
+      const response = await request;
+      setFaved(true);
+
+      console.log("Favoriting " + s3_key);
+      return response;
+    } catch (err: any) {
+      console.log(err.message);
     }
+    // }
   };
 
   const handleUnfave = async () => {
@@ -58,9 +60,7 @@ const FaveHeart: React.FC<FaveHeartProps> = ({ s3_key }) => {
     try {
       const { request } = GifService.tagGif(s3_key, newTags);
       const response = await request;
-      console.log("Tags: " + tags);
       setFaved(false);
-      console.log("Tags: " + tags);
       console.log("Unfavoriting " + s3_key);
       return response;
     } catch (err: any) {

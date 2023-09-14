@@ -11,7 +11,6 @@ from aws_cdk import (
     aws_secretsmanager as secretsmanager,
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
-    aws_route53 as route53,
     aws_iam as iam,
 )
 from constructs import Construct
@@ -20,9 +19,7 @@ import os
 
 
 class StaticS3Stack(Stack):
-    def __init__(
-        self, scope: Construct, construct_id: str, gif_bucket: s3.Bucket, **kwargs
-    ) -> None:
+    def __init__(self, scope: Construct, construct_id: str, gif_bucket: s3.Bucket, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # datadog api key secret
@@ -30,7 +27,8 @@ class StaticS3Stack(Stack):
         datadog_api_key_secret = secretsmanager.Secret.from_secret_partial_arn(
             self,
             "dd_api_key_secret",
-            secret_partial_arn="arn:aws:secretsmanager:us-east-1:112825984205:secret:DdApiKeySecret-KX38ECVTR2uT-mxkSag",
+            secret_partial_arn="""arn:aws:secretsmanager:us-east-1:112825984205:
+            secret:DdApiKeySecret-KX38ECVTR2uT-mxkSag""",
         )
 
         # datadog construct
@@ -63,7 +61,7 @@ class StaticS3Stack(Stack):
         website_bucket.grant_public_access()
 
         # deploy static web assets to bucket
-        static_assets_path = f"../web-ui/dist/"
+        static_assets_path = "../web-ui/dist/"
         s3_deploy.BucketDeployment(
             self,
             "s3_deployment",
@@ -76,13 +74,11 @@ class StaticS3Stack(Stack):
 
         # set up cloudfront distribution for gif_bucket
         access_identity = cloudfront.OriginAccessIdentity(self, "access_identity")
-        cloudfront_distribution = cloudfront.Distribution(
+        cloudfront.Distribution(
             self,
             "cloudfront_distribution",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3Origin(
-                    bucket=gif_bucket, origin_access_identity=access_identity
-                )
+                origin=origins.S3Origin(bucket=gif_bucket, origin_access_identity=access_identity)
             ),
         )
 
@@ -93,9 +89,7 @@ class StaticS3Stack(Stack):
             "gif_presigned_urls",
             runtime=_lambda.Runtime.PYTHON_3_9,
             handler="presigned_url.handler",
-            code=_lambda.Code.from_asset(
-                os.path.join(cwd, "lambda_assets/generate_presigned_url")
-            ),
+            code=_lambda.Code.from_asset(os.path.join(cwd, "lambda_assets/generate_presigned_url")),
             timeout=Duration.seconds(180),
             environment={
                 "GIF_BUCKET": gif_bucket.bucket_name,
@@ -114,9 +108,7 @@ class StaticS3Stack(Stack):
             "list_s3_keys",
             runtime=_lambda.Runtime.PYTHON_3_9,
             handler="list_s3_keys.handler",
-            code=_lambda.Code.from_asset(
-                os.path.join(cwd, "lambda_assets/list_s3_keys")
-            ),
+            code=_lambda.Code.from_asset(os.path.join(cwd, "lambda_assets/list_s3_keys")),
             timeout=Duration.seconds(180),
             environment={
                 "GIF_BUCKET": gif_bucket.bucket_name,
@@ -126,7 +118,8 @@ class StaticS3Stack(Stack):
             },
         )
         gif_bucket.grant_read(get_s3_keys_lambda)
-        # datadog.add_lambda_functions([get_s3_keys_lambda, presigned_url_lambda])
+        # datadog.add_lambda_functions(
+        # [get_s3_keys_lambda, presigned_url_lambda])
         datadog_api_key_secret.grant_read(get_s3_keys_lambda)
 
         tag_s3_objects_lambda = _lambda.Function(
@@ -134,9 +127,7 @@ class StaticS3Stack(Stack):
             "tag_s3_objects",
             runtime=_lambda.Runtime.PYTHON_3_9,
             handler="tag_s3_object.handler",
-            code=_lambda.Code.from_asset(
-                os.path.join(cwd, "lambda_assets/tag_s3_objects")
-            ),
+            code=_lambda.Code.from_asset(os.path.join(cwd, "lambda_assets/tag_s3_objects")),
             timeout=Duration.seconds(180),
             environment={
                 "GIF_BUCKET": gif_bucket.bucket_name,
@@ -155,9 +146,7 @@ class StaticS3Stack(Stack):
             "archive_gifs",
             runtime=_lambda.Runtime.PYTHON_3_9,
             handler="archive_gif.handler",
-            code=_lambda.Code.from_asset(
-                os.path.join(cwd, "lambda_assets/archive_gif")
-            ),
+            code=_lambda.Code.from_asset(os.path.join(cwd, "lambda_assets/archive_gif")),
             timeout=Duration.seconds(180),
             environment={
                 "GIF_BUCKET": gif_bucket.bucket_name,
@@ -170,10 +159,22 @@ class StaticS3Stack(Stack):
         gif_bucket.grant_delete(archive_gifs_lambda)
         gif_archive_bucket.grant_put(archive_gifs_lambda)
 
-        # api to front presigned url lambda
-        api_log_group = logs.LogGroup(
-            self, "GifApiLogGroup", removal_policy=RemovalPolicy.DESTROY
+        get_gif_tags_lambda = _lambda.Function(
+            self,
+            "get_gif_tags",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="get_gif_tags.handler",
+            code=_lambda.Code.from_asset(os.path.join(cwd, "lambda_assets/get_gif_tags")),
+            timeout=Duration.seconds(180),
+            environment={
+                "GIF_BUCKET": gif_bucket.bucket_name,
+                "CORS_ORIGIN": website_bucket.bucket_website_url,
+            },
         )
+        gif_bucket.grant_read(get_gif_tags_lambda)
+
+        # api to front presigned url lambda
+        api_log_group = logs.LogGroup(self, "GifApiLogGroup", removal_policy=RemovalPolicy.DESTROY)
         api = apigw.LambdaRestApi(
             self,
             "presigned_url_api",
@@ -197,22 +198,20 @@ class StaticS3Stack(Stack):
         )
 
         list_s3_keys = api.root.add_resource("list_s3_keys")
-        # request_parameters = {"method.request.querystring.ContinuationToken": False}
+
         list_s3_keys.add_method(
             "POST",
             integration=apigw.LambdaIntegration(get_s3_keys_lambda),
-            # request_parameters=request_parameters,
         )
 
         tag_s3_object = api.root.add_resource("tag_gif")
-        tag_s3_object.add_method(
-            "POST", integration=apigw.LambdaIntegration(tag_s3_objects_lambda)
-        )
+        tag_s3_object.add_method("POST", integration=apigw.LambdaIntegration(tag_s3_objects_lambda))
 
         archive_gif = api.root.add_resource("archive_gif")
-        archive_gif.add_method(
-            "POST", integration=apigw.LambdaIntegration(archive_gifs_lambda)
-        )
+        archive_gif.add_method("POST", integration=apigw.LambdaIntegration(archive_gifs_lambda))
+
+        get_tags = api.root.add_resource("get_tags")
+        get_tags.add_method("POST", integration=apigw.LambdaIntegration(get_gif_tags_lambda))
 
         # send api gw logs into datadog
         datadog.add_forwarder_to_non_lambda_log_groups(log_groups=[api_log_group])

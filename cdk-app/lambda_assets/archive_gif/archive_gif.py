@@ -32,6 +32,7 @@ def delete_object(object_key):
     except Exception as e:
         return str(e)
 
+
 def handler(event, context):
     try:
         s3_key = json.loads(event["body"]).get("s3_key")

@@ -2,13 +2,11 @@ from aws_cdk import (
     Duration,
     Size,
     Stack,
-    CfnOutput,
     aws_s3 as s3,
     aws_s3_notifications as s3n,
     aws_lambda as _lambda,
     aws_events as events,
     aws_events_targets as targets,
-    aws_iam as iam,
 )
 from constructs import Construct
 import os
@@ -19,9 +17,7 @@ class GifSplitterInfraStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # use existing source and destination s3 buckets
-        mp4_input_bucket = s3.Bucket.from_bucket_arn(
-            self, "input_bucket", bucket_arn="arn:aws:s3:::tc-test-gif-input"
-        )
+        mp4_input_bucket = s3.Bucket.from_bucket_arn(self, "input_bucket", bucket_arn="arn:aws:s3:::tc-test-gif-input")
         self.gif_output_bucket = s3.Bucket.from_bucket_arn(
             self, "output_bucket", bucket_arn="arn:aws:s3:::tc-test-gif-output"
         )
@@ -35,17 +31,13 @@ class GifSplitterInfraStack(Stack):
             self, "ffmpeg_layer", "arn:aws:lambda:us-east-1:112825984205:layer:ffmpeg:1"
         )
 
-        event_bus = events.EventBus(
-            self, "gif_maker_bus", event_bus_name="gif_maker_bus"
-        )
+        event_bus = events.EventBus(self, "gif_maker_bus", event_bus_name="gif_maker_bus")
         mp4_splitter = _lambda.Function(
             self,
             "splitter_function",
             runtime=_lambda.Runtime.PYTHON_3_9,
             handler="mp4_splitter.handler",
-            code=_lambda.Code.from_asset(
-                os.path.join(cwd, "lambda_assets/mp4_splitter")
-            ),
+            code=_lambda.Code.from_asset(os.path.join(cwd, "lambda_assets/mp4_splitter")),
             timeout=Duration.seconds(180),
             environment={
                 "DESIRED_DURATION_IN_SECONDS": "2",
@@ -72,9 +64,7 @@ class GifSplitterInfraStack(Stack):
             self,
             "gif_lambda_rule",
             event_bus=event_bus,
-            event_pattern=events.EventPattern(
-                source=["lambda.mp4split"], detail_type=["newVideoUpload"]
-            ),
+            event_pattern=events.EventPattern(source=["lambda.mp4split"], detail_type=["newVideoUpload"]),
         )
         rule.add_target(targets.LambdaFunction(gif_maker, retry_attempts=3))
 
