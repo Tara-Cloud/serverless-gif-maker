@@ -7,13 +7,14 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_events as events,
     aws_events_targets as targets,
+    aws_secretsmanager as secretsmanager,
 )
 from constructs import Construct
 import os
 
 
 class GifSplitterInfraStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, datadog_secret: secretsmanager.Secret, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # use existing source and destination s3 buckets
@@ -45,6 +46,7 @@ class GifSplitterInfraStack(Stack):
             },
             layers=[ffmpeg_layer],
         )
+        datadog_secret.grant_read(mp4_splitter)
 
         gif_maker = _lambda.Function(
             self,
@@ -57,6 +59,7 @@ class GifSplitterInfraStack(Stack):
             layers=[ffmpeg_layer],
             ephemeral_storage_size=Size.mebibytes(10000),
         )
+        datadog_secret.grant_read(gif_maker)
 
         # event bus and rule to target gif maker lambda
         event_bus.grant_all_put_events(mp4_splitter)
