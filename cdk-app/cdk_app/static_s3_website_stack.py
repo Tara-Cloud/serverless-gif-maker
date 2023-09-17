@@ -9,8 +9,7 @@ from aws_cdk import (
     aws_apigateway as apigw,
     aws_logs as logs,
     aws_secretsmanager as secretsmanager,
-    aws_cloudfront as cloudfront,
-    aws_cloudfront_origins as origins,
+    aws_cloudfront as cf,
     aws_iam as iam,
 )
 from constructs import Construct
@@ -53,15 +52,31 @@ class StaticS3Stack(Stack):
         # s3 bucket to archive gifs
         gif_archive_bucket = s3.Bucket(self, "gif_archive_bucket")
 
-        # set up cloudfront distribution for gif_bucket
-        access_identity = cloudfront.OriginAccessIdentity(self, "access_identity")
-        cloudfront.Distribution(
+        # cloudfront distribution
+        oai = cf.OriginAccessIdentity(self, "oai")
+        cf.CloudFrontWebDistribution(
             self,
-            "cloudfront_distribution",
-            default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3Origin(bucket=gif_bucket, origin_access_identity=access_identity)
-            ),
+            "cf_distro",
+            origin_configs=[
+                cf.SourceConfiguration(
+                    s3_origin_source=cf.S3OriginConfig(s3_bucket_source=gif_bucket, origin_access_identity=oai),
+                    behaviors=[cf.Behavior(is_default_behavior=True)],
+                )
+            ],
         )
+        # grant read access to cloudfront origin access identity
+        oai_bucket_policy = iam.PolicyStatement(
+            actions=["s3:GetObject"],
+            effect=iam.Effect.ALLOW,
+            resources=[f"{gif_bucket.bucket_arn}/*"],
+            principals=[
+                iam.ArnPrincipal(
+                    f"arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity {oai.origin_access_identity_id}"
+                )
+            ],
+        )
+        oai_policy = s3.BucketPolicy(self, "oai_policy", bucket=gif_bucket)
+        oai_policy.document.add_statements(oai_bucket_policy)
 
         # lambda function to generate pre-signed-urls
         cwd = os.getcwd()

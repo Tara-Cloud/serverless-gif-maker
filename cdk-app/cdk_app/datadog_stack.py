@@ -29,7 +29,7 @@ class DatadogStack(Stack):
             enable_datadog_tracing=True,
             enable_datadog_logs=True,
             source_code_integration=True,
-            log_level="DEBUG",
+            log_level="WARN",
         )
 
         self.datadog_secret = datadog_secret
