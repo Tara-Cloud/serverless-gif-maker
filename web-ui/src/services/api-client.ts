@@ -1,5 +1,6 @@
 import axios, {CanceledError} from "axios";
+import config from "../../config";
 
 export default axios.create({
-    baseURL: "https://eaqx59qktb.execute-api.us-east-1.amazonaws.com/prod/",
+    baseURL: config.apiDomain,
 })
