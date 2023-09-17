@@ -10,11 +10,14 @@ from aws_cdk import (
     aws_secretsmanager as secretsmanager,
 )
 from constructs import Construct
+from datadog_cdk_constructs_v2 import Datadog
 import os
 
 
 class GifSplitterInfraStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, datadog_secret: secretsmanager.Secret, **kwargs) -> None:
+    def __init__(
+        self, scope: Construct, construct_id: str, datadog_secret: secretsmanager.Secret, datadog: Datadog, **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # use existing source and destination s3 buckets
@@ -82,3 +85,6 @@ class GifSplitterInfraStack(Stack):
         # grant neccesary read and write permissions to gif maker lambda
         mp4_input_bucket.grant_read(gif_maker)
         self.gif_output_bucket.grant_write(gif_maker)
+
+        # add lambdas to datadog monitoring
+        datadog.add_lambda_functions([mp4_splitter, gif_maker])

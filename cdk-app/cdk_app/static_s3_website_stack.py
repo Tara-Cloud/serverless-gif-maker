@@ -14,6 +14,7 @@ from aws_cdk import (
     aws_iam as iam,
 )
 from constructs import Construct
+from datadog_cdk_constructs_v2 import Datadog
 import os
 
 
@@ -24,6 +25,7 @@ class StaticS3Stack(Stack):
         construct_id: str,
         gif_bucket: s3.Bucket,
         datadog_secret: secretsmanager.Secret,
+        datadog: Datadog,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -70,6 +72,7 @@ class StaticS3Stack(Stack):
             handler="presigned_url.handler",
             code=_lambda.Code.from_asset(os.path.join(cwd, "lambda_assets/generate_presigned_url")),
             timeout=Duration.seconds(180),
+            tracing=_lambda.Tracing.ACTIVE,
             environment={
                 "GIF_BUCKET": gif_bucket.bucket_name,
                 # TODO: change this to your own domain
@@ -77,10 +80,6 @@ class StaticS3Stack(Stack):
             },
         )
         gif_bucket.grant_read(presigned_url_lambda)
-        datadog_secret.grant_read(presigned_url_lambda)
-
-        # lambda function to get cloudfront urls
-        # cloudfont_url_lambda = _lambda.Function(self, 'cloudfront_lambda',
 
         get_s3_keys_lambda = _lambda.Function(
             self,
@@ -97,9 +96,6 @@ class StaticS3Stack(Stack):
             },
         )
         gif_bucket.grant_read(get_s3_keys_lambda)
-        # datadog.add_lambda_functions(
-        # [get_s3_keys_lambda, presigned_url_lambda])
-        datadog_secret.grant_read(get_s3_keys_lambda)
 
         tag_s3_objects_lambda = _lambda.Function(
             self,
@@ -119,7 +115,6 @@ class StaticS3Stack(Stack):
                 resources=[f"{gif_bucket.bucket_arn}/*"],
             )
         )
-        datadog_secret.grant_read(tag_s3_objects_lambda)
 
         archive_gifs_lambda = _lambda.Function(
             self,
@@ -138,7 +133,6 @@ class StaticS3Stack(Stack):
         gif_bucket.grant_read(archive_gifs_lambda)
         gif_bucket.grant_delete(archive_gifs_lambda)
         gif_archive_bucket.grant_put(archive_gifs_lambda)
-        datadog_secret.grant_read(archive_gifs_lambda)
 
         get_gif_tags_lambda = _lambda.Function(
             self,
@@ -153,7 +147,6 @@ class StaticS3Stack(Stack):
             },
         )
         gif_bucket.grant_read(get_gif_tags_lambda)
-        datadog_secret.grant_read(get_gif_tags_lambda)
 
         # api to front presigned url lambda
         api_log_group = logs.LogGroup(self, "GifApiLogGroup", removal_policy=RemovalPolicy.DESTROY)
@@ -195,8 +188,16 @@ class StaticS3Stack(Stack):
         get_tags = api.root.add_resource("get_tags")
         get_tags.add_method("POST", integration=apigw.LambdaIntegration(get_gif_tags_lambda))
 
-        # send api gw logs into datadog
-        # datadog_secret.add_forwarder_to_non_lambda_log_groups(log_groups=[api_log_group])
+        datadog.add_lambda_functions(
+            [presigned_url_lambda, get_s3_keys_lambda, tag_s3_objects_lambda, archive_gifs_lambda, get_gif_tags_lambda]
+        )
+
+        # grant read on data dog secret to each lambda
+        datadog_secret.grant_read(presigned_url_lambda)
+        datadog_secret.grant_read(get_s3_keys_lambda)
+        datadog_secret.grant_read(tag_s3_objects_lambda)
+        datadog_secret.grant_read(archive_gifs_lambda)
+        datadog_secret.grant_read(get_gif_tags_lambda)
 
         # output url for s3 bucket
         CfnOutput(
